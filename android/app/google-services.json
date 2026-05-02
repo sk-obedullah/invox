@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "108650371328",
+    "project_id": "invox-32790",
+    "storage_bucket": "invox-32790.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108650371328:android:cf802e1459272dd5bffbe5",
+        "android_client_info": {
+          "package_name": "com.invox.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBL05AzkU-CzZ0UgzFhNLsZH4XA0zA8cOA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

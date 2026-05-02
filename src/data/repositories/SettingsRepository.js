@@ -11,7 +11,14 @@ class SettingsRepository {
    */
   async get() {
     const result = await db.executeSql('SELECT * FROM settings WHERE id = 1');
-    return result.rows.length > 0 ? result.rows.item(0) : null;
+    if (result.rows.length > 0) {
+      const item = result.rows.item(0);
+      return {
+        ...item,
+        is_activated: !!item.is_activated, // Convert 0/1 to boolean
+      };
+    }
+    return null;
   }
 
   /**
@@ -41,6 +48,7 @@ class SettingsRepository {
         upi_id = ?,
         thanks_note = ?,
         qr_code_path = ?,
+        is_activated = ?,
         updated_at = datetime('now')
       WHERE id = 1`,
       [
@@ -65,6 +73,7 @@ class SettingsRepository {
         settings.upi_id || '',
         settings.thanks_note || 'Thank you for your business!',
         settings.qr_code_path || '',
+        settings.is_activated ? 1 : 0,
       ]
     );
   }

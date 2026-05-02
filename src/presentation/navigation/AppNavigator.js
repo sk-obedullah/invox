@@ -18,6 +18,8 @@ import ItemListScreen from '../screens/ItemListScreen';
 import ItemFormScreen from '../screens/ItemFormScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import EditSettingsScreen from '../screens/EditSettingsScreen';
+import ActivationScreen from '../screens/ActivationScreen';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -93,15 +95,23 @@ const HomeTabs = () => {
 };
 
 const AppNavigator = () => {
+  const isActivated = useSettingsStore((s) => s.is_activated);
+
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-      <Stack.Screen name="Main" component={HomeTabs} />
-      <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
-      <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} />
-      <Stack.Screen name="CustomerForm" component={CustomerFormScreen} />
-      <Stack.Screen name="ItemForm" component={ItemFormScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
-      <Stack.Screen name="EditSettings" component={EditSettingsScreen} />
+      {!isActivated ? (
+        <Stack.Screen name="Activation" component={ActivationScreen} />
+      ) : (
+        <>
+          <Stack.Screen name="Main" component={HomeTabs} />
+          <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
+          <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} />
+          <Stack.Screen name="CustomerForm" component={CustomerFormScreen} />
+          <Stack.Screen name="ItemForm" component={ItemFormScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="EditSettings" component={EditSettingsScreen} />
+        </>
+      )}
     </Stack.Navigator>
   );
 };
