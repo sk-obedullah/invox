@@ -18,6 +18,7 @@ export const SettingsSchema = z.object({
   default_terms: z.string().default('Payment is due within 30 days of invoice date.'),
   template: z.string().default('modern'),
   theme: z.enum(['light', 'dark', 'system']).default('system'),
+  is_activated: z.boolean().default(false),
 });
 
 export const DEFAULT_SETTINGS = {
@@ -34,4 +35,5 @@ export const DEFAULT_SETTINGS = {
   default_terms: 'Payment is due within 30 days of invoice date.',
   template: 'modern',
   theme: 'system',
+  is_activated: false,
 };

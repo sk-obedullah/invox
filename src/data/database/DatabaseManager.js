@@ -69,7 +69,8 @@ class DatabaseManager {
         "ALTER TABLE settings ADD COLUMN bank_mobile TEXT DEFAULT ''",
         "ALTER TABLE settings ADD COLUMN upi_id TEXT DEFAULT ''",
         "ALTER TABLE settings ADD COLUMN thanks_note TEXT DEFAULT 'Thank you for your business!'",
-        "ALTER TABLE settings ADD COLUMN qr_code_path TEXT DEFAULT ''"
+        "ALTER TABLE settings ADD COLUMN qr_code_path TEXT DEFAULT ''",
+        "ALTER TABLE settings ADD COLUMN is_activated INTEGER DEFAULT 0"
       ];
 
       for (const colSql of newColumns) {

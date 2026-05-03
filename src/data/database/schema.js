@@ -30,6 +30,7 @@ export const CREATE_TABLES = [
     upi_id TEXT DEFAULT '',
     thanks_note TEXT DEFAULT 'Thank you for your business!',
     qr_code_path TEXT DEFAULT '',
+    is_activated INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );`,
