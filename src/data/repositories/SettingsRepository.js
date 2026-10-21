@@ -16,8 +16,13 @@ class SettingsRepository {
       return {
         ...item,
         is_activated: !!item.is_activated, // Convert 0/1 to boolean
+        enable_tax: !!item.enable_tax, // Convert 0/1 to boolean
+        enable_analytics: item.enable_analytics !== 0, // Convert 0/1 to boolean (default true)
       };
     }
+    
+    // If no settings row exists (e.g. fresh install glitch), create it now
+    await db.executeSql("INSERT OR IGNORE INTO settings (id, company_name) VALUES (1, '')");
     return null;
   }
 
@@ -49,6 +54,8 @@ class SettingsRepository {
         thanks_note = ?,
         qr_code_path = ?,
         is_activated = ?,
+        enable_tax = ?,
+        enable_analytics = ?,
         updated_at = datetime('now')
       WHERE id = 1`,
       [
@@ -74,6 +81,8 @@ class SettingsRepository {
         settings.thanks_note || 'Thank you for your business!',
         settings.qr_code_path || '',
         settings.is_activated ? 1 : 0,
+        settings.enable_tax ? 1 : 0,
+        settings.enable_analytics ? 1 : 0,
       ]
     );
   }

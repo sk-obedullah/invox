@@ -22,6 +22,7 @@ import { InvoiceListSkeleton } from '../components/common/SkeletonLoader';
 import { formatCurrency } from '../../utils/formatters';
 import { useDebounce } from '../../hooks/useDebounce';
 import { INVOICE_STATUS } from '../../constants/invoiceStatus';
+import PdfService from '../../services/PdfService';
 
 const FILTER_TABS = [
   { key: null, label: 'All' },
@@ -45,10 +46,15 @@ const HomeScreen = ({ navigation }) => {
   const store = useInvoiceStore();
   const companyName = useSettingsStore((s) => s.company_name);
   const defaultCurrency = useSettingsStore((s) => s.default_currency);
+  const enableAnalytics = useSettingsStore((s) => s.enable_analytics);
   const [searchText, setSearchText] = useState('');
   const debouncedSearch = useDebounce(searchText, 400);
 
-  useEffect(() => { store.fetchInvoices(true); store.fetchStats(); }, []);
+  useEffect(() => { 
+    store.fetchInvoices(true); 
+    store.fetchStats(); 
+    PdfService.cleanupCache(); // Lightweight: Clean old PDFs on startup
+  }, []);
   useEffect(() => { store.setFilters({ search: debouncedSearch }); }, [debouncedSearch]);
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
@@ -69,6 +75,27 @@ const HomeScreen = ({ navigation }) => {
 
   const ListHeader = useMemo(() => (
     <View>
+      {enableAnalytics && (
+        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('Dashboard')}
+            activeOpacity={0.9}
+            style={[styles.dashboardCard, { backgroundColor: colors.primary }]}
+          >
+            <View style={styles.dashboardCardContent}>
+              <View>
+                <Text style={styles.dashboardCardLabel}>Business Insights</Text>
+                <Text style={styles.dashboardCardTitle}>View Profit & Sales Analytics</Text>
+              </View>
+              <View style={[styles.dashboardIconCircle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <Icon name="chart-line" size={24} color="#FFF" />
+              </View>
+            </View>
+            <Icon name="chevron-right" size={20} color="rgba(255,255,255,0.7)" style={styles.dashboardArrow} />
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
       {store.stats && (
         <Animated.View entering={FadeIn.duration(600)} style={styles.statsContainer}>
           <View style={styles.statsRow}>
@@ -127,16 +154,49 @@ const HomeScreen = ({ navigation }) => {
           <Text style={[styles.greeting, { color: colors.textSecondary }]}>{getGreeting()}</Text>
           <Text style={[styles.title, { color: colors.textPrimary }]}>{companyName || 'Invox'}</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={[styles.settingsBtn, { backgroundColor: colors.surfaceVariant }]}>
-          <Icon name="cog-outline" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('ArchivedInvoices')} 
+              style={styles.archiveBtn}
+            >
+              <Icon name="archive-clock-outline" size={moderateScale(24)} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('EditSettings')}
+              style={[styles.profileBtn, { backgroundColor: colors.surfaceVariant }]}
+            >
+              <Icon name="cog-outline" size={moderateScale(20)} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
       </Animated.View>
-      <FlatList data={store.invoices} renderItem={renderItem} keyExtractor={keyExtractor}
-        ListHeaderComponent={ListHeader} ListEmptyComponent={renderEmpty}
-        onEndReached={store.loadMore} onEndReachedThreshold={0.5}
-        refreshControl={<RefreshControl refreshing={store.isRefreshing} onRefresh={() => store.fetchInvoices(true)} tintColor={colors.primary} colors={[colors.primary]} />}
-        contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}
-        removeClippedSubviews maxToRenderPerBatch={10} windowSize={5}
+      <FlatList 
+        data={store.invoices} 
+        renderItem={renderItem} 
+        keyExtractor={keyExtractor}
+        ListHeaderComponent={ListHeader} 
+        ListEmptyComponent={renderEmpty}
+        onEndReached={store.loadMore} 
+        onEndReachedThreshold={0.5}
+        refreshControl={
+          <RefreshControl 
+            refreshing={store.isRefreshing} 
+            onRefresh={() => store.fetchInvoices(true)} 
+            tintColor={colors.primary} 
+            colors={[colors.primary]} 
+          />
+        }
+        contentContainerStyle={styles.listContent} 
+        showsVerticalScrollIndicator={false}
+        // Performance Optimizations
+        initialNumToRender={8}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        getItemLayout={(data, index) => ({
+          length: 130, // Approximate height of InvoiceCard
+          offset: 130 * index + 450, // 450 is approx height of ListHeader
+          index,
+        })}
       />
       <Animated.View entering={FadeIn.delay(300).duration(400)} style={[styles.fab, elevation.lg, { backgroundColor: colors.primary }]}>
         <TouchableOpacity onPress={onCreatePress} style={styles.fabInner} activeOpacity={0.8}>
@@ -149,10 +209,42 @@ const HomeScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.base, paddingBottom: spacing.base },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.base,
+    paddingBottom: spacing.sm,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  archiveBtn: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileBtn: {
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   greeting: { fontSize: moderateFontScale(13), fontWeight: '400', marginBottom: 2 },
   title: { fontSize: moderateFontScale(24), fontWeight: '700', letterSpacing: -0.3 },
   settingsBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+  dashboardBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
+  dashboardCard: { marginHorizontal: spacing.base, padding: spacing.lg, borderRadius: borderRadius.xl, marginBottom: spacing.lg, ...elevation.md },
+  dashboardCardContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dashboardCardLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+  dashboardCardTitle: { color: '#FFF', fontSize: 18, fontWeight: '700' },
+  dashboardIconCircle: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
+  dashboardArrow: { alignSelf: 'flex-end', marginTop: 8 },
   statsContainer: { paddingHorizontal: spacing.base, marginBottom: spacing.base },
   statsRow: { flexDirection: 'row', gap: moderateScale(spacing.md), marginBottom: moderateScale(spacing.md), flexWrap: 'wrap' },
   statCard: { flex: 1, minWidth: 140, padding: moderateScale(spacing.base), borderRadius: borderRadius.lg },
@@ -164,7 +256,7 @@ const styles = StyleSheet.create({
   filterTabText: { fontSize: moderateFontScale(13), fontWeight: '500' },
   resultCount: { paddingHorizontal: spacing.base, paddingVertical: spacing.sm },
   resultCountText: { fontSize: moderateFontScale(12) },
-  listContent: { paddingBottom: 100, flexGrow: 1 },
+  listContent: { paddingBottom: 120, flexGrow: 1 },
   fab: { position: 'absolute', bottom: 24, right: 20, width: 56, height: 56, borderRadius: 28, overflow: 'hidden' },
   fabInner: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

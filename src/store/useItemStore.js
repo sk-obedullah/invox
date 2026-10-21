@@ -3,6 +3,7 @@ import ItemRepository from '../data/repositories/ItemRepository';
 
 const useItemStore = create((set, get) => ({
   items: [],
+  recentItems: [],
   isLoading: false,
   error: null,
 
@@ -15,6 +16,26 @@ const useItemStore = create((set, get) => ({
     } catch (error) {
       console.error('Failed to fetch items:', error);
       set({ error: error.message, isLoading: false });
+    }
+  },
+
+  // Search items from DB
+  searchItems: async (query) => {
+    try {
+      return await ItemRepository.search(query);
+    } catch (error) {
+      console.error('Search items failed:', error);
+      return [];
+    }
+  },
+
+  // Get recently used items
+  fetchRecentItems: async () => {
+    try {
+      const recent = await ItemRepository.getRecentlyUsed();
+      set({ recentItems: recent });
+    } catch (error) {
+      console.error('Fetch recent items failed:', error);
     }
   },
 

@@ -168,6 +168,14 @@ const SettingsScreen = ({ navigation }) => {
                 <InfoRow icon="percent" label="Tax Rate" value={`${settings.default_tax_rate}%`} colors={colors} />
               </View>
             </View>
+            <View style={styles.splitRow}>
+              <View style={styles.splitHalf}>
+                <InfoRow icon="percent" label="Tax / GST" value={settings.enable_tax ? 'Enabled' : 'Disabled'} colors={colors} />
+              </View>
+              <View style={styles.splitHalf}>
+                <InfoRow icon="chart-box-outline" label="Analytics" value={settings.enable_analytics ? 'Enabled' : 'Disabled'} colors={colors} />
+              </View>
+            </View>
             <InfoRow icon="text-box-outline" label="Default Notes" value={settings.default_notes} colors={colors} isMultiline={true} />
             <InfoRow icon="file-document-outline" label="Default Terms" value={settings.default_terms} colors={colors} isMultiline={true} />
           </View>
@@ -223,7 +231,7 @@ const SettingsScreen = ({ navigation }) => {
           </View>
         </AppCard>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, Image, 
-  KeyboardAvoidingView, Platform, Alert,
+  KeyboardAvoidingView, Platform, Alert, ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAppTheme } from '../../theme';
@@ -42,53 +42,67 @@ const ActivationScreen = () => {
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1 }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
-      <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <View style={styles.content}>
-          <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
-            <Icon name="shield-check" size={moderateScale(60)} color={colors.primary} />
+      <ScrollView 
+        contentContainerStyle={{ flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.screen, { backgroundColor: colors.background }]}>
+          <View style={styles.content}>
+            <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+              <Icon name="shield-check" size={moderateScale(60)} color={colors.primary} />
+            </View>
+            
+            <Text style={[styles.title, { color: colors.textPrimary }]}>
+              Activation Required
+            </Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+              Please enter your unique product key to start using Invox. Each key is valid for a single device.
+            </Text>
+  
+            <View style={styles.inputSection}>
+              <AppInput
+                label="Product Key"
+                placeholder="XXXX-XXXX-XXXX-XXXX"
+                value={productKey}
+                onChangeText={setProductKey}
+                autoCapitalize="characters"
+                leftIcon="key-variant"
+              />
+              
+              <AppButton
+                title="Activate Now"
+                icon="lightning-bolt"
+                onPress={handleActivate}
+                loading={loading}
+                fullWidth
+                style={styles.button}
+              />
+            </View>
+  
+            <View style={[styles.infoCard, { backgroundColor: colors.surfaceVariant }]}>
+              <Icon name="email-outline" size={24} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.infoLabel, { color: colors.textPrimary, fontWeight: '700', fontSize: moderateFontScale(14), marginBottom: 2 }]}>
+                  Need an Activation Key?
+                </Text>
+                <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                  Please contact <Text style={{ color: colors.primary, fontWeight: '800' }}>obedullahsk@gmail.com</Text> to request your unique license. Keys are delivered instantly via email.
+                </Text>
+              </View>
+            </View>
           </View>
           
-          <Text style={[styles.title, { color: colors.textPrimary }]}>
-            Activation Required
+          <View style={{ height: 100 }} />
+  
+          <Text style={[styles.footerText, { color: colors.textTertiary }]}>
+            Invox Professional v1.0.0
           </Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Please enter your unique product key to start using Invox. Each key is valid for a single device.
-          </Text>
-
-          <View style={styles.inputSection}>
-            <AppInput
-              label="Product Key"
-              placeholder="XXXX-XXXX-XXXX-XXXX"
-              value={productKey}
-              onChangeText={setProductKey}
-              autoCapitalize="characters"
-              leftIcon="key-variant"
-            />
-            
-            <AppButton
-              title="Activate Now"
-              icon="lightning-bolt"
-              onPress={handleActivate}
-              loading={loading}
-              fullWidth
-              style={styles.button}
-            />
-          </View>
-
-          <View style={[styles.infoCard, { backgroundColor: colors.surfaceVariant }]}>
-            <Icon name="information-outline" size={20} color={colors.textTertiary} />
-            <Text style={[styles.infoText, { color: colors.textTertiary }]}>
-              Don't have a key? Please contact your administrator or provider to purchase an activation license.
-            </Text>
-          </View>
         </View>
-
-        <Text style={[styles.footerText, { color: colors.textTertiary }]}>
-          Invox Professional v1.0.0
-        </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -137,6 +151,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  infoLabel: {
+    fontSize: moderateFontScale(14),
+    fontWeight: '700',
+    marginBottom: 2,
   },
   infoText: {
     flex: 1,

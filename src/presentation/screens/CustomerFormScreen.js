@@ -2,7 +2,7 @@
  * CustomerFormScreen - Add/Edit customer
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppTheme } from '../../theme';
@@ -53,37 +53,43 @@ const CustomerFormScreen = ({ navigation, route }) => {
   }, [form, isEdit, editId]);
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm, borderBottomColor: colors.borderLight }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{isEdit ? 'Edit Customer' : 'New Customer'}</Text>
-        <View style={{ width: 40 }} />
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + spacing.sm, borderBottomColor: colors.borderLight }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Icon name="arrow-left" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>{isEdit ? 'Edit Customer' : 'New Customer'}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <AppCard style={styles.section}>
+            <AppInput label="Name" value={form.name} onChangeText={(v) => updateField('name', v)} leftIcon="account" required error={errors.name} />
+            <AppInput label="Email" value={form.email} onChangeText={(v) => updateField('email', v)} leftIcon="email-outline" keyboardType="email-address" error={errors.email} />
+            <AppInput label="Phone" value={form.phone} onChangeText={(v) => updateField('phone', v)} leftIcon="phone-outline" keyboardType="phone-pad" />
+            <AppInput label="GSTIN" value={form.gstin} onChangeText={(v) => updateField('gstin', v)} leftIcon="card-account-details-outline" />
+          </AppCard>
+          <AppCard style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Address</Text>
+            <AppInput label="Street" value={form.address} onChangeText={(v) => updateField('address', v)} leftIcon="map-marker-outline" multiline />
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}><AppInput label="City" value={form.city} onChangeText={(v) => updateField('city', v)} /></View>
+              <View style={{ flex: 1 }}><AppInput label="State" value={form.state} onChangeText={(v) => updateField('state', v)} /></View>
+            </View>
+            <AppInput label="ZIP" value={form.zip_code} onChangeText={(v) => updateField('zip_code', v)} keyboardType="number-pad" />
+          </AppCard>
+          <AppCard style={styles.section}>
+            <AppInput label="Notes" value={form.notes} onChangeText={(v) => updateField('notes', v)} multiline numberOfLines={3} placeholder="Internal notes..." />
+          </AppCard>
+          <AppButton title={isEdit ? 'Update' : 'Save Customer'} icon="check" onPress={handleSave} loading={saving} fullWidth />
+          <View style={{ height: 100 }} />
+        </ScrollView>
       </View>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <AppCard style={styles.section}>
-          <AppInput label="Name" value={form.name} onChangeText={(v) => updateField('name', v)} leftIcon="account" required error={errors.name} />
-          <AppInput label="Email" value={form.email} onChangeText={(v) => updateField('email', v)} leftIcon="email-outline" keyboardType="email-address" error={errors.email} />
-          <AppInput label="Phone" value={form.phone} onChangeText={(v) => updateField('phone', v)} leftIcon="phone-outline" keyboardType="phone-pad" />
-          <AppInput label="GSTIN" value={form.gstin} onChangeText={(v) => updateField('gstin', v)} leftIcon="card-account-details-outline" />
-        </AppCard>
-        <AppCard style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Address</Text>
-          <AppInput label="Street" value={form.address} onChangeText={(v) => updateField('address', v)} leftIcon="map-marker-outline" multiline />
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}><AppInput label="City" value={form.city} onChangeText={(v) => updateField('city', v)} /></View>
-            <View style={{ flex: 1 }}><AppInput label="State" value={form.state} onChangeText={(v) => updateField('state', v)} /></View>
-          </View>
-          <AppInput label="ZIP" value={form.zip_code} onChangeText={(v) => updateField('zip_code', v)} keyboardType="number-pad" />
-        </AppCard>
-        <AppCard style={styles.section}>
-          <AppInput label="Notes" value={form.notes} onChangeText={(v) => updateField('notes', v)} multiline numberOfLines={3} placeholder="Internal notes..." />
-        </AppCard>
-        <AppButton title={isEdit ? 'Update' : 'Save Customer'} icon="check" onPress={handleSave} loading={saving} fullWidth />
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 

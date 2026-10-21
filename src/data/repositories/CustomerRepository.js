@@ -106,6 +106,29 @@ class CustomerRepository {
   }
 
   /**
+   * Get recently used customers based on previous invoices
+   */
+  async getRecentlyUsed(limit = 5) {
+    const sql = `
+      SELECT c.* FROM customers c
+      JOIN (
+        SELECT customer_id, MAX(id) as last_id 
+        FROM invoices 
+        WHERE customer_id IS NOT NULL
+        GROUP BY customer_id 
+        ORDER BY last_id DESC 
+        LIMIT ?
+      ) inv ON c.id = inv.customer_id
+    `;
+    const result = await db.executeSql(sql, [limit]);
+    const customers = [];
+    for (let i = 0; i < result.rows.length; i++) {
+      customers.push(result.rows.item(i));
+    }
+    return customers;
+  }
+
+  /**
    * Get customer invoice count
    */
   async getInvoiceCount(customerId) {

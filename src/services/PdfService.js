@@ -73,7 +73,8 @@ class PdfService {
         </td>
         <td class="center">${formatCurrency(item.unit_price, invoice.currency)}</td>
         <td class="center">${item.quantity}</td>
-        <td class="right">${formatCurrency(item.amount, invoice.currency)}</td>
+        ${settings.enable_tax ? `<td class="center">${item.tax_rate}%</td>` : ''}
+        <td class="right">${formatCurrency(item.total || item.amount, invoice.currency)}</td>
       </tr>
     `
       )
@@ -113,7 +114,7 @@ class PdfService {
         table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
         thead { background-color: #F8F9FA; border-bottom: 2px solid #eaeaea; border-top: 1px solid #eaeaea; }
         th { padding: 10px 20px; text-align: left; font-size: 14px; font-weight: 700; letter-spacing: 1px; color: #000; text-transform: uppercase; border: none; }
-        th:first-child { padding-left: 80px; width: 45%; }
+        th:first-child { padding-left: 80px; width: ${settings.enable_tax ? '40%' : '45%'}; }
         th:last-child { padding-right: 80px; }
         th.center { text-align: center; }
         th.right { text-align: right; }
@@ -179,6 +180,7 @@ class PdfService {
               <th>ITEMS</th>
               <th class="center">PRICE</th>
               <th class="center">QUANTITY</th>
+              ${settings.enable_tax ? `<th class="center">TAX</th>` : ''}
               <th class="right">AMOUNT</th>
             </tr>
           </thead>
@@ -360,6 +362,25 @@ class PdfService {
       if (exists) await RNFS.unlink(path);
     } catch (error) {
       console.error('[PdfService] Delete failed:', error);
+    }
+  }
+
+  /**
+   * Clear all temporary PDF files to keep the app lightweight
+   */
+  async cleanupCache() {
+    try {
+      const dir = Platform.OS === 'ios' ? RNFS.DocumentDirectoryPath : RNFS.ExternalDirectoryPath;
+      const files = await RNFS.readDir(dir);
+      
+      const targets = files.filter(f => f.name.startsWith('invoice_') && f.name.endsWith('.pdf'));
+      
+      for (const file of targets) {
+        await RNFS.unlink(file.path);
+      }
+      console.log(`[PdfService] Cleaned up ${targets.length} temporary files.`);
+    } catch (err) {
+      console.warn('[PdfService] Cache cleanup failed:', err);
     }
   }
 }

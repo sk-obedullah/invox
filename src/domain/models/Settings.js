@@ -19,6 +19,8 @@ export const SettingsSchema = z.object({
   template: z.string().default('modern'),
   theme: z.enum(['light', 'dark', 'system']).default('system'),
   is_activated: z.boolean().default(false),
+  enable_tax: z.boolean().default(false),
+  enable_analytics: z.boolean().default(true),
 });
 
 export const DEFAULT_SETTINGS = {
@@ -36,4 +38,6 @@ export const DEFAULT_SETTINGS = {
   template: 'modern',
   theme: 'system',
   is_activated: false,
+  enable_tax: false,
+  enable_analytics: true,
 };
