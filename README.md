@@ -1,61 +1,127 @@
-# Invox 📄
-Professional Invoicing Made Simple.
+# Invox
 
-**Invox** is a high-performance, professional invoice management application built with React Native. It allows users to manage customers, track items, and generate beautiful, enterprise-grade PDF invoices in seconds.
+> **A professional, offline-first invoicing app for small businesses**, built with React Native and SQLite.
 
-## 🚀 Key Features
-- **Intelligent Invoicing**: Streamlined creation flow with automated tax and total calculations.
-- **Save & Send**: One-tap workflow to save invoices, generate PDFs, and open the system share menu.
-- **Offline First**: Robust local data storage using SQLite.
-- **QR Code Payments**: Support for custom UPI and payment QR codes on generated PDFs.
-- **Professional Templates**: Modern, clean PDF designs ready for business use.
-- **Backup & Restore**: Easily backup your data to local storage and restore it anytime.
-
-## 🛠️ Tech Stack
-- **Framework**: React Native
-- **State Management**: Zustand
-- **Database**: SQLite (via `react-native-sqlite-storage`)
-- **PDF Engine**: `react-native-html-to-pdf`
-- **Styling**: Vanilla Stylesheets with a custom design system
-- **Animations**: Reanimated 3
-
-## 🏗️ Architecture
-The project follows **Clean Architecture** principles:
-- **Presentation Layer**: React Native components and screens using a custom theme.
-- **Domain Layer**: Zod schemas and business models.
-- **Data Layer**: Repository pattern for database access and persistence.
-- **Service Layer**: Infrastructure services for PDF generation, sharing, and backups.
-
-## 📦 Getting Started
-1. Install dependencies: `npm install`
-2. Start Metro: `npm start`
-3. Run on Android: `npm run android`
+<p align="center">
+  <img src="docs/assets/banner.png" alt="Invox Banner" width="600" />
+</p>
 
 ---
-Built with ❤️ for professional efficiency.
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+## 🚀 Features
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-## Congratulations! :tada:
+- 📄 **Professional Invoice Creation** — Multi-item invoices with taxes, discounts, and custom numbering
+- 👥 **Customer Management** — Full CRUD with smart recent-customer caching
+- 📦 **Inventory Tracking** — Real-time stock deduction on invoicing, batch stock-ups, manual adjustments
+- 🕰️ **Document Timeline** — Full audit trail of every status change and edit per invoice
+- 📊 **Analytics Dashboard** — Revenue, profit margin, pending receivables, and top-item/customer reports
+- 📑 **PDF Generation & Sharing** — Professional A4 PDF output with bank details & QR code payment page
+- 💾 **V2 Backup & Restore** — Complete raw SQL mirroring of all 7 data tables with referential integrity
+- 🔐 **License Activation** — Firebase-backed product key validation with hardware ID binding
+- 🌗 **Dark / Light Theme** — Fully themeable UI
 
-You've successfully run and modified your React Native App. :partying_face:
+---
 
-### Now what?
+## 🏗️ Architecture
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full system design including:
+- Layer breakdown (Presentation → Service → Data)
+- Entity-Relationship Diagram
+- Data flow diagrams for invoice creation, status changes, and backup/restore
 
-# Troubleshooting
+---
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+## 🗂️ Project Structure
 
-# Learn More
+```
+Invox/
+├── android/                  # Android native project
+├── docs/                     # Documentation
+│   ├── ARCHITECTURE.md       # System architecture & diagrams
+│   └── CHANGELOG.md          # Release history
+├── src/
+│   ├── constants/            # App-wide constants (templates, statuses)
+│   ├── data/
+│   │   ├── database/
+│   │   │   ├── DatabaseManager.js   # SQLite init & migration runner
+│   │   │   └── schema.js            # All CREATE TABLE statements
+│   │   └── repositories/
+│   │       ├── InvoiceRepository.js
+│   │       ├── CustomerRepository.js
+│   │       ├── ItemRepository.js
+│   │       └── SettingsRepository.js
+│   ├── domain/models/        # Data shape definitions
+│   ├── presentation/
+│   │   ├── components/
+│   │   │   ├── common/       # AppButton, AppCard, AppInput, etc.
+│   │   │   └── invoice/      # LineItemRow, InvoiceSummary, StatusBadge
+│   │   ├── navigation/       # React Navigation stack & tab config
+│   │   └── screens/          # All app screens
+│   ├── services/
+│   │   ├── BackupService.js  # V2 raw SQL backup & restore
+│   │   ├── PdfService.js     # HTML-to-PDF generation
+│   │   ├── SecurityService.js # License validation
+│   │   └── ShareService.js   # Native share sheet
+│   ├── store/                # Zustand state stores
+│   ├── theme/                # Colors, spacing, typography tokens
+│   └── utils/                # Formatters, calculations, helpers
+└── package.json
+```
 
-To learn more about React Native, take a look at the following resources:
+---
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## ⚙️ Setup & Development
+
+### Prerequisites
+- Node.js >= 18
+- React Native CLI
+- Android Studio with SDK 36
+- Java 17
+
+### Install
+```bash
+npm install
+```
+
+### Run (Development)
+```bash
+npm start          # Start Metro bundler
+npm run android    # Run on connected Android device/emulator
+```
+
+### Build Release APK
+```bash
+cd android
+.\gradlew assembleRelease
+```
+Output: `android/app/build/outputs/apk/release/app-release.apk`
+
+---
+
+## 🔑 Critical Engineering Rules
+
+> These rules exist because of real bugs found during the system audit. **Do not break them.**
+
+1. **Never use `async/await` inside `database.transaction()` callbacks.**
+   The `react-native-sqlite-storage` library does not await Promises inside the transaction callback. All multi-step operations should use sequential `await db.executeSql()` calls.
+
+2. **Always use `total` (not `amount`) in `line_items`.**
+   The DB schema defines `total` as the final calculated price column. Using `amount` will silently return `0` or fail with a constraint error.
+
+3. **Backup must wipe before restore.**
+   Attempting to re-insert records without first clearing the tables will fail on UNIQUE constraints (invoice_number) and will corrupt stock levels with duplicate inventory logs.
+
+4. **Respect the Invoice Status Machine.**
+   A `sent`, `paid`, or `overdue` invoice cannot be set back to `draft`. The UI enforces this, and the backend `updateStatus()` should validate it as well.
+
+---
+
+## 📋 Changelog
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md).
+
+---
+
+## 📄 License
+
+Proprietary — All rights reserved.

@@ -2,7 +2,7 @@
  * EditSettingsScreen - Form to edit app configuration
  */
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, Image, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -43,6 +43,8 @@ const EditSettingsScreen = ({ navigation }) => {
     upi_id: settings.upi_id || '',
     thanks_note: settings.thanks_note || 'Thank you for your business!',
     qr_code_path: settings.qr_code_path || '',
+    enable_tax: !!settings.enable_tax,
+    enable_analytics: !!settings.enable_analytics,
   });
   
   const [logoPath, setLogoPath] = useState(settings.company_logo_path);
@@ -89,7 +91,11 @@ const EditSettingsScreen = ({ navigation }) => {
   }, [form, logoPath, settings, navigation]);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView 
+      style={{ flex: 1 }} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+    >
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
         <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -134,7 +140,35 @@ const EditSettingsScreen = ({ navigation }) => {
                 <AppInput label="Next Number" value={form.next_invoice_number} onChangeText={(v) => updateField('next_invoice_number', v)} keyboardType="number-pad" />
               </View>
             </View>
-            <AppInput label="Default Tax Rate (%)" value={form.default_tax_rate} onChangeText={(v) => updateField('default_tax_rate', v)} keyboardType="decimal-pad" />
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>Enable Tax / GST</Text>
+                <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>Show tax fields in invoices and items</Text>
+              </View>
+              <Switch
+                value={form.enable_tax}
+                onValueChange={(v) => updateField('enable_tax', v)}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={Platform.OS === 'android' ? '#FFF' : undefined}
+              />
+            </View>
+
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>Business Analytics</Text>
+                <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>Show the Business Insights dashboard card on Home</Text>
+              </View>
+              <Switch
+                value={form.enable_analytics}
+                onValueChange={(v) => updateField('enable_analytics', v)}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={Platform.OS === 'android' ? '#FFF' : undefined}
+              />
+            </View>
+
+            {form.enable_tax && (
+              <AppInput label="Default Tax Rate (%)" value={form.default_tax_rate} onChangeText={(v) => updateField('default_tax_rate', v)} keyboardType="decimal-pad" />
+            )}
             
             {/* Currency Selector */}
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Currency</Text>
@@ -220,7 +254,7 @@ const EditSettingsScreen = ({ navigation }) => {
             <AppInput label="Thanks Note (End of PDF)" value={form.thanks_note} onChangeText={(v) => updateField('thanks_note', v)} multiline numberOfLines={3} />
           </AppCard>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: 100 }} />
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -239,6 +273,9 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', marginBottom: spacing.md },
   fieldLabel: { fontSize: 13, fontWeight: '500', marginBottom: spacing.xs },
   row: { flexDirection: 'row', gap: spacing.md },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md, paddingVertical: spacing.xs },
+  toggleLabel: { fontSize: 15, fontWeight: '600' },
+  toggleSub: { fontSize: 12, marginTop: 2 },
   logoPicker: { width: 100, height: 100, alignSelf: 'center', borderRadius: borderRadius.lg, borderWidth: 2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginBottom: spacing.base, overflow: 'hidden' },
   logoImage: { width: '100%', height: '100%', resizeMode: 'contain' },
   logoPlaceholder: { alignItems: 'center' },

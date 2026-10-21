@@ -79,7 +79,11 @@ const AppInput = ({
         )}
 
         <TextInput
-          value={value}
+          value={
+            (keyboardType === 'numeric' || keyboardType === 'decimal-pad') && (value === '0' || value === '0.00')
+              ? ''
+              : value
+          }
           onChangeText={onChangeText}
           placeholder={placeholder}
           placeholderTextColor={colors.placeholder}
@@ -90,6 +94,7 @@ const AppInput = ({
           numberOfLines={numberOfLines}
           keyboardType={keyboardType}
           editable={editable}
+          selectTextOnFocus={keyboardType === 'numeric' || keyboardType === 'decimal-pad'}
           style={[
             styles.input,
             { color: colors.textPrimary },

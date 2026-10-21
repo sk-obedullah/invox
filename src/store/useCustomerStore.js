@@ -7,6 +7,7 @@ import CustomerRepository from '../data/repositories/CustomerRepository';
 
 export const useCustomerStore = create((set, get) => ({
   customers: [],
+  recentCustomers: [],
   isLoading: false,
   error: null,
   total: 0,
@@ -18,6 +19,15 @@ export const useCustomerStore = create((set, get) => ({
       set({ customers: result.data, total: result.total, isLoading: false });
     } catch (error) {
       set({ error: error.message, isLoading: false });
+    }
+  },
+
+  fetchRecentCustomers: async () => {
+    try {
+      const recent = await CustomerRepository.getRecentlyUsed();
+      set({ recentCustomers: recent });
+    } catch (error) {
+      console.error('[CustomerStore] Fetch recent failed:', error);
     }
   },
 

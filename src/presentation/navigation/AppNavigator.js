@@ -19,6 +19,11 @@ import ItemFormScreen from '../screens/ItemFormScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import EditSettingsScreen from '../screens/EditSettingsScreen';
 import ActivationScreen from '../screens/ActivationScreen';
+import DashboardScreen from '../screens/DashboardScreen';
+import InventoryReportScreen from '../screens/InventoryReportScreen';
+import AnalyticsInfoScreen from '../screens/AnalyticsInfoScreen';
+import ArchivedItemsScreen from '../screens/ArchivedItemsScreen';
+import ArchivedInvoicesScreen from '../screens/ArchivedInvoicesScreen';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 const Stack = createNativeStackNavigator();
@@ -110,6 +115,11 @@ const AppNavigator = () => {
           <Stack.Screen name="ItemForm" component={ItemFormScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
           <Stack.Screen name="EditSettings" component={EditSettingsScreen} />
+          <Stack.Screen name="Dashboard" component={DashboardScreen} />
+          <Stack.Screen name="InventoryReport" component={InventoryReportScreen} />
+          <Stack.Screen name="AnalyticsInfo" component={AnalyticsInfoScreen} />
+          <Stack.Screen name="ArchivedItems" component={ArchivedItemsScreen} />
+          <Stack.Screen name="ArchivedInvoices" component={ArchivedInvoicesScreen} />
         </>
       )}
     </Stack.Navigator>

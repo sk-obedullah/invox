@@ -60,8 +60,8 @@ class DatabaseManager {
       // Insert default settings
       await this.db.executeSql(INSERT_DEFAULT_SETTINGS);
 
-      // Migrations for existing databases
-      const newColumns = [
+      // Migrations (safe ALTER TABLE commands)
+      const migrations = [
         "ALTER TABLE settings ADD COLUMN bank_account_name TEXT DEFAULT ''",
         "ALTER TABLE settings ADD COLUMN bank_account_no TEXT DEFAULT ''",
         "ALTER TABLE settings ADD COLUMN bank_ifsc TEXT DEFAULT ''",
@@ -70,14 +70,27 @@ class DatabaseManager {
         "ALTER TABLE settings ADD COLUMN upi_id TEXT DEFAULT ''",
         "ALTER TABLE settings ADD COLUMN thanks_note TEXT DEFAULT 'Thank you for your business!'",
         "ALTER TABLE settings ADD COLUMN qr_code_path TEXT DEFAULT ''",
-        "ALTER TABLE settings ADD COLUMN is_activated INTEGER DEFAULT 0"
+        "ALTER TABLE settings ADD COLUMN is_activated INTEGER DEFAULT 0",
+        "ALTER TABLE settings ADD COLUMN enable_tax INTEGER DEFAULT 0",
+        "ALTER TABLE settings ADD COLUMN enable_analytics INTEGER DEFAULT 1",
+        "ALTER TABLE items ADD COLUMN mrp_price REAL DEFAULT 0",
+        "ALTER TABLE items ADD COLUMN purchase_price REAL DEFAULT 0",
+        "ALTER TABLE items ADD COLUMN stock_quantity REAL DEFAULT 0",
+        "ALTER TABLE items ADD COLUMN min_stock_level REAL DEFAULT 0",
+        "ALTER TABLE line_items ADD COLUMN mrp_price REAL DEFAULT 0",
+        "ALTER TABLE line_items ADD COLUMN purchase_price REAL DEFAULT 0",
+        "ALTER TABLE line_items ADD COLUMN item_id INTEGER",
+        "ALTER TABLE items ADD COLUMN is_active INTEGER DEFAULT 1",
+        "ALTER TABLE invoices ADD COLUMN is_active INTEGER DEFAULT 1",
+        "ALTER TABLE invoices ADD COLUMN revision_number INTEGER DEFAULT 0",
+        "ALTER TABLE invoices ADD COLUMN is_revised INTEGER DEFAULT 0",
       ];
 
-      for (const colSql of newColumns) {
+      for (const migrationSql of migrations) {
         try {
-          await this.db.executeSql(colSql);
+          await this.db.executeSql(migrationSql);
         } catch (e) {
-          // Column might already exist, ignore
+          // Silently fail if column already exists
         }
       }
 

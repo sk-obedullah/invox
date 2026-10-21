@@ -13,6 +13,7 @@ import { useAppTheme } from '../../theme';
 import { spacing, borderRadius, elevation } from '../../theme/spacing';
 import { useInvoiceStore } from '../../store/useInvoiceStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import InvoiceRepository from '../../data/repositories/InvoiceRepository';
 import AppCard from '../components/common/AppCard';
 import AppButton from '../components/common/AppButton';
 import StatusBadge from '../components/invoice/StatusBadge';
@@ -31,11 +32,19 @@ const InvoiceDetailScreen = ({ navigation, route }) => {
 
   const { currentInvoice: invoice, isLoading, fetchInvoiceById, deleteInvoice, updateInvoiceStatus } = useInvoiceStore();
   const settings = useSettingsStore();
-
+  const [revisions, setRevisions] = useState([]);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  useEffect(() => { fetchInvoiceById(invoiceId); }, [invoiceId]);
+  const fetchHistory = useCallback(async () => {
+    const revs = await InvoiceRepository.getRevisions(invoiceId);
+    setRevisions(revs);
+  }, [invoiceId]);
+
+  useEffect(() => { 
+    fetchInvoiceById(invoiceId);
+    fetchHistory();
+  }, [invoiceId]);
 
   const handleEdit = useCallback(() => {
     navigation.navigate('CreateInvoice', { invoiceId });
@@ -43,30 +52,36 @@ const InvoiceDetailScreen = ({ navigation, route }) => {
 
   const handleDelete = useCallback(async () => {
     setDeleteDialogVisible(false);
-    await deleteInvoice(invoiceId);
-    navigation.goBack();
-  }, [invoiceId]);
+    try {
+      await deleteInvoice(invoiceId);
+      navigation.goBack();
+    } catch (err) {
+      Alert.alert('Error', 'Failed to delete invoice');
+    }
+  }, [invoiceId, deleteInvoice, navigation]);
 
   const handleStatusChange = useCallback(async (status) => {
     await updateInvoiceStatus(invoiceId, status);
     fetchInvoiceById(invoiceId);
-  }, [invoiceId]);
+    fetchHistory();
+  }, [invoiceId, fetchHistory]);
 
   const handleGeneratePdf = useCallback(async () => {
     if (!invoice) return;
     setGenerating(true);
     try {
-      const pdfPath = await PdfService.generateInvoicePdf(invoice, settings, settings.template);
-      Alert.alert('Success', 'PDF generated successfully', [
-        { text: 'Share', onPress: () => ShareService.sharePdf(pdfPath, invoice.invoice_number) },
-        { text: 'OK' },
-      ]);
+      const fullInvoice = await fetchInvoiceById(invoiceId);
+      if (fullInvoice) {
+        const pdfPath = await PdfService.generateInvoicePdf(fullInvoice, settings);
+        await ShareService.sharePdf(pdfPath, fullInvoice.invoice_number);
+      }
     } catch (err) {
-      Alert.alert('Error', err.message);
+      console.error('PDF generation error:', err);
+      Alert.alert('Error', 'Could not generate or share PDF');
     } finally {
       setGenerating(false);
     }
-  }, [invoice, settings]);
+  }, [invoice, invoiceId, fetchInvoiceById, settings]);
 
   if (isLoading || !invoice) {
     return (
@@ -76,6 +91,8 @@ const InvoiceDetailScreen = ({ navigation, route }) => {
     );
   }
 
+  const isArchived = route.params?.isArchived;
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Header */}
@@ -83,52 +100,47 @@ const InvoiceDetailScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Icon name="arrow-left" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Invoice</Text>
-        <TouchableOpacity onPress={() => setDeleteDialogVisible(true)}>
-          <Icon name="delete-outline" size={24} color={colors.error} />
-        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>
+          {isArchived ? 'Archived Invoice' : 'Invoice Details'}
+        </Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Invoice Header Card */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400)}>
-          <AppCard style={styles.invoiceHeader}>
-            <View style={styles.invoiceHeaderTop}>
-              <View>
-                <Text style={[styles.invoiceNumber, { color: colors.primary }]}>{invoice.invoice_number}</Text>
-                <Text style={[styles.invoiceDate, { color: colors.textSecondary }]}>{formatDate(invoice.issue_date, 'DD MMM YYYY, HH:mm:ss')}</Text>
+        <Animated.View entering={FadeInDown.duration(400)}>
+          {/* Main Info Card */}
+          <AppCard style={styles.section}>
+            <View style={styles.topRow}>
+              <View style={{ flex: 1, marginRight: spacing.md }}>
+                <Text style={[styles.invNumber, { color: colors.primary }]}>#{invoice.invoice_number}</Text>
+                <Text style={[styles.date, { color: colors.textTertiary }]}>Issued: {formatDate(invoice.issue_date, 'DD MMM, YYYY')}</Text>
+                {invoice.due_date && (
+                  <Text style={[styles.date, { color: colors.textTertiary, marginTop: 2 }]}>
+                    Due: {formatDate(invoice.due_date, 'DD MMM, YYYY')}
+                  </Text>
+                )}
               </View>
-              <StatusBadge status={invoice.status} size="lg" />
+              <StatusBadge status={invoice.status} />
             </View>
-            <View style={[styles.totalContainer, { backgroundColor: colors.primaryLight }]}>
-              <Text style={[styles.totalLabel, { color: colors.primary }]}>Total Amount</Text>
-              <Text style={[styles.totalAmount, { color: colors.primary }]}>{formatCurrency(invoice.total, invoice.currency)}</Text>
+
+            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+            <View style={styles.customerInfo}>
+              <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>CUSTOMER</Text>
+              <Text style={[styles.customerName, { color: colors.textPrimary }]}>{invoice.customer_name}</Text>
+              {invoice.customer_email && <Text style={[styles.customerSub, { color: colors.textSecondary }]}>{invoice.customer_email}</Text>}
+              {invoice.customer_address && <Text style={[styles.customerSub, { color: colors.textSecondary, marginTop: 4 }]}>{invoice.customer_address}</Text>}
             </View>
           </AppCard>
-        </Animated.View>
 
-        {/* Customer Info */}
-        {invoice.customer_name && (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)}>
-            <AppCard style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>BILL TO</Text>
-              <Text style={[styles.customerName, { color: colors.textPrimary }]}>{invoice.customer_name}</Text>
-              {invoice.customer_email ? <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>{invoice.customer_email}</Text> : null}
-              {invoice.customer_phone ? <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>{invoice.customer_phone}</Text> : null}
-              {invoice.customer_address ? <Text style={[styles.customerDetail, { color: colors.textSecondary }]}>{invoice.customer_address}</Text> : null}
-            </AppCard>
-          </Animated.View>
-        )}
-
-        {/* Line Items */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+          {/* Items Card */}
           <AppCard style={styles.section}>
             <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>ITEMS</Text>
             {(invoice.line_items || []).map((item, i) => (
               <View key={i} style={[styles.lineItem, i < invoice.line_items.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.divider }]}>
                 <View style={styles.lineItemTop}>
                   <Text style={[styles.lineItemName, { color: colors.textPrimary }]}>{item.name}</Text>
-                  <Text style={[styles.lineItemAmount, { color: colors.textPrimary }]}>{formatCurrency(item.amount, invoice.currency)}</Text>
+                  <Text style={[styles.lineItemAmount, { color: colors.textPrimary }]}>{formatCurrency(item.total || item.amount || 0, invoice.currency)}</Text>
                 </View>
                 <Text style={[styles.lineItemMeta, { color: colors.textTertiary }]}>
                   {item.quantity} × {formatCurrency(item.unit_price, invoice.currency)}
@@ -140,7 +152,75 @@ const InvoiceDetailScreen = ({ navigation, route }) => {
         </Animated.View>
 
         {/* Summary */}
-        <InvoiceSummary subtotal={invoice.subtotal} taxAmount={invoice.tax_amount} discount={invoice.discount} total={invoice.total} currency={invoice.currency} />
+        <View style={{ marginVertical: spacing.md }}>
+          <InvoiceSummary 
+            totals={{
+              subtotal: invoice.subtotal,
+              tax_amount: invoice.tax_amount,
+              discount: invoice.discount,
+              total: invoice.total
+            }} 
+            currency={invoice.currency} 
+            showTax={settings.enable_tax} 
+          />
+        </View>
+
+        {/* Document Timeline */}
+        <AppCard style={styles.section}>
+          <View style={styles.revisionHeader}>
+            <Icon name="history" size={20} color={colors.primary} />
+            <Text style={[styles.sectionLabel, { color: colors.textPrimary, marginBottom: 0, fontSize: 13 }]}>Document Timeline</Text>
+          </View>
+          
+          <View style={styles.timelineContainer}>
+            {/* Version Nodes */}
+            {revisions.map((rev, idx) => {
+              const isStatusUpdate = rev.reason && rev.reason.includes('Status changed');
+              const badgeText = isStatusUpdate ? 'STATUS UPDATE' : 'DOCUMENT EDITED';
+              const badgeColor = isStatusUpdate ? colors.warning : colors.primary;
+              const badgeBg = isStatusUpdate ? colors.warningLight : colors.primaryLight;
+              
+              return (
+                <View key={rev.id} style={styles.timelineItem}>
+                  <View style={styles.timelineLeft}>
+                    <View style={[styles.timelineDot, { backgroundColor: badgeColor }]} />
+                    <View style={[styles.timelineLine, { backgroundColor: colors.borderLight }]} />
+                  </View>
+                  
+                  <View style={styles.timelineContent}>
+                    <View style={styles.revisionInfoRow}>
+                      <View style={[styles.versionBadge, { backgroundColor: badgeBg }]}>
+                        <Text style={[styles.versionText, { color: badgeColor }]}>{badgeText}</Text>
+                      </View>
+                      <Text style={[styles.revisionDate, { color: colors.textTertiary }]}>
+                        {formatDate(rev.created_at, 'MMM DD, HH:mm')}
+                      </Text>
+                    </View>
+                    <Text style={[styles.revisionReason, { color: colors.textSecondary }]}>
+                      {rev.reason || 'Snapshot captured'}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+            
+            {/* Original Creation Node - Always Visible */}
+            <View style={styles.timelineItem}>
+              <View style={styles.timelineLeft}>
+                <View style={[styles.timelineDot, { backgroundColor: colors.success, transform: [{ scale: 0.8 }] }]} />
+              </View>
+              <View style={styles.timelineContent}>
+                <View style={[styles.versionBadge, { backgroundColor: colors.successLight, alignSelf: 'flex-start', marginBottom: 4 }]}>
+                  <Text style={[styles.versionText, { color: colors.success }]}>DOCUMENT CREATED</Text>
+                </View>
+                <Text style={[styles.revisionReason, { color: colors.textSecondary, fontSize: 12 }]}>Initial draft generated</Text>
+                <Text style={[styles.revisionDate, { color: colors.textTertiary, marginTop: 2 }]}>
+                  {formatDate(invoice.created_at, 'MMM DD, YYYY - HH:mm')}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </AppCard>
 
         {/* Notes */}
         {invoice.notes ? (
@@ -151,25 +231,48 @@ const InvoiceDetailScreen = ({ navigation, route }) => {
         ) : null}
 
         {/* Status Actions */}
-        <AppCard style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>UPDATE STATUS</Text>
-          <View style={styles.statusActions}>
-            {Object.values(INVOICE_STATUS).filter((s) => s !== invoice.status).map((s) => (
-              <TouchableOpacity key={s} onPress={() => handleStatusChange(s)}
-                style={[styles.statusBtn, { borderColor: colors.border }]}>
-                <Text style={[styles.statusBtnText, { color: colors.textSecondary }]}>{s}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </AppCard>
+        {!isArchived && (
+          <AppCard style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: colors.textTertiary }]}>UPDATE STATUS</Text>
+            <View style={styles.statusActions}>
+              {Object.values(INVOICE_STATUS)
+                .filter((s) => {
+                  // Cannot move back to draft once it's been sent/finalized
+                  if (s === INVOICE_STATUS.DRAFT) return false;
+                  // Cannot move to current status
+                  return s !== invoice.status;
+                })
+                .map((s) => (
+                  <TouchableOpacity key={s} onPress={() => handleStatusChange(s)}
+                    style={[styles.statusBtn, { borderColor: colors.border }]}>
+                    <Text style={[styles.statusBtnText, { color: colors.textSecondary }]}>{s}</Text>
+                  </TouchableOpacity>
+                ))}
+            </View>
+          </AppCard>
+        )}
 
         {/* Action Buttons */}
         <View style={styles.actions}>
-          <AppButton title="Edit" icon="pencil" variant="outline" onPress={handleEdit} style={styles.actionBtn} />
-          <AppButton title={generating ? 'Generating...' : 'PDF & Share'} icon="file-pdf-box" onPress={handleGeneratePdf} loading={generating} style={styles.actionBtn} />
+          {!isArchived && invoice.status === INVOICE_STATUS.DRAFT && (
+            <AppButton 
+              title="Edit" 
+              icon="pencil" 
+              variant="outline" 
+              onPress={handleEdit} 
+              style={styles.actionBtn} 
+            />
+          )}
+          <AppButton 
+            title={generating ? 'Generating...' : 'Share PDF'} 
+            icon="share-variant-outline" 
+            onPress={handleGeneratePdf} 
+            loading={generating} 
+            style={styles.actionBtn} 
+          />
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       <ConfirmDialog visible={deleteDialogVisible} onDismiss={() => setDeleteDialogVisible(false)} onConfirm={handleDelete}
@@ -185,26 +288,45 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '600' },
   scrollContent: { padding: spacing.base },
-  invoiceHeader: { marginBottom: spacing.base },
-  invoiceHeaderTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.base },
-  invoiceNumber: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
-  invoiceDate: { fontSize: 13 },
-  totalContainer: { borderRadius: borderRadius.md, padding: spacing.base, alignItems: 'center' },
-  totalLabel: { fontSize: 12, fontWeight: '500', marginBottom: 4 },
-  totalAmount: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5 },
-  section: { marginBottom: spacing.md },
+  section: { marginBottom: spacing.md, padding: spacing.lg },
   sectionLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: spacing.md, textTransform: 'uppercase' },
-  customerName: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  customerDetail: { fontSize: 13, lineHeight: 20 },
+  
+  // Header Info Styles
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md },
+  invNumber: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  date: { fontSize: 13, fontWeight: '500' },
+  divider: { height: 1, marginVertical: spacing.lg, opacity: 0.5 },
+  
+  // Customer Styles
+  customerInfo: { marginTop: spacing.sm },
+  customerName: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  customerSub: { fontSize: 14, lineHeight: 20 },
+  
+  // Line Items
   lineItem: { paddingVertical: spacing.md },
   lineItemTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  lineItemName: { fontSize: 14, fontWeight: '500', flex: 1 },
-  lineItemAmount: { fontSize: 14, fontWeight: '600' },
-  lineItemMeta: { fontSize: 12 },
-  notesText: { fontSize: 13, lineHeight: 20 },
+  lineItemName: { fontSize: 15, fontWeight: '600', flex: 1 },
+  lineItemAmount: { fontSize: 15, fontWeight: '700' },
+  lineItemMeta: { fontSize: 13 },
+  
+  notesText: { fontSize: 14, lineHeight: 22 },
   statusActions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  statusBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: borderRadius.full, borderWidth: 1 },
-  statusBtnText: { fontSize: 12, fontWeight: '500', textTransform: 'capitalize' },
+  statusBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: borderRadius.full, borderWidth: 1, backgroundColor: 'transparent' },
+  statusBtnText: { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
+  
+  // Timeline Styles
+  revisionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.lg },
+  timelineContainer: { paddingLeft: 4 },
+  timelineItem: { flexDirection: 'row', minHeight: 60 },
+  timelineLeft: { width: 30, alignItems: 'center' },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, zIndex: 1 },
+  timelineLine: { width: 2, flex: 1, marginVertical: -5 },
+  timelineContent: { flex: 1, paddingLeft: spacing.sm, paddingBottom: spacing.lg },
+  revisionInfoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: 4 },
+  versionBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 },
+  versionText: { fontSize: 10, fontWeight: '900' },
+  revisionDate: { fontSize: 11 },
+  revisionReason: { fontSize: 13, lineHeight: 18 },
   actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
   actionBtn: { flex: 1 },
 });

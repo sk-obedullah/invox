@@ -3,7 +3,7 @@
  * Defines all tables, indexes, and migrations
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 6;
 
 export const CREATE_TABLES = [
   // Settings table
@@ -16,12 +16,14 @@ export const CREATE_TABLES = [
     company_logo_path TEXT DEFAULT '',
     default_currency TEXT DEFAULT 'INR',
     default_tax_rate REAL DEFAULT 18.0,
+    enable_tax INTEGER DEFAULT 0,
     invoice_prefix TEXT DEFAULT 'INV',
     next_invoice_number INTEGER DEFAULT 1001,
     default_notes TEXT DEFAULT '',
     default_terms TEXT DEFAULT 'Payment is due within 30 days of invoice date.',
     template TEXT DEFAULT 'modern',
     theme TEXT DEFAULT 'system',
+    enable_analytics INTEGER DEFAULT 1,
     bank_account_name TEXT DEFAULT '',
     bank_account_no TEXT DEFAULT '',
     bank_ifsc TEXT DEFAULT '',
@@ -73,6 +75,9 @@ export const CREATE_TABLES = [
     notes TEXT DEFAULT '',
     terms TEXT DEFAULT '',
     pdf_path TEXT DEFAULT '',
+    is_active INTEGER DEFAULT 1,
+    revision_number INTEGER DEFAULT 0,
+    is_revised INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
@@ -82,26 +87,61 @@ export const CREATE_TABLES = [
   `CREATE TABLE IF NOT EXISTS line_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     invoice_id INTEGER NOT NULL,
+    item_id INTEGER,
     name TEXT NOT NULL,
     description TEXT DEFAULT '',
     quantity REAL DEFAULT 1,
     unit_price REAL DEFAULT 0,
+    purchase_price REAL DEFAULT 0,
+    mrp_price REAL DEFAULT 0,
     tax_rate REAL DEFAULT 0,
     tax_amount REAL DEFAULT 0,
     amount REAL DEFAULT 0,
+    total REAL DEFAULT 0,
     sort_order INTEGER DEFAULT 0,
-    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE SET NULL
   );`,
 
-  // Predefined Items table
+  // Predefined Items table with stock tracking
   `CREATE TABLE IF NOT EXISTS items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT DEFAULT '',
     unit_price REAL DEFAULT 0,
+    mrp_price REAL DEFAULT 0,
+    purchase_price REAL DEFAULT 0,
     tax_rate REAL DEFAULT 0,
+    stock_quantity REAL DEFAULT 0,
+    min_stock_level REAL DEFAULT 0,
+    is_active INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
+  );`,
+
+  // Inventory logs for batch tracking and history
+  `CREATE TABLE IF NOT EXISTS inventory_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    type TEXT NOT NULL, -- 'in' (purchase), 'out' (sale), 'adjustment'
+    quantity REAL NOT NULL,
+    price REAL DEFAULT 0,
+    reference_id INTEGER, -- invoice_id for 'out'
+    notes TEXT DEFAULT '',
+    batch_number TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+  );`,
+
+  // Revision history table
+  `CREATE TABLE IF NOT EXISTS invoice_revisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL,
+    revision_number INTEGER NOT NULL,
+    snapshot_data TEXT NOT NULL,
+    reason TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
   );`,
 ];
 
@@ -111,8 +151,12 @@ export const CREATE_INDEXES = [
   'CREATE INDEX IF NOT EXISTS idx_invoices_issue_date ON invoices(issue_date);',
   'CREATE INDEX IF NOT EXISTS idx_invoices_invoice_number ON invoices(invoice_number);',
   'CREATE INDEX IF NOT EXISTS idx_line_items_invoice_id ON line_items(invoice_id);',
+  'CREATE INDEX IF NOT EXISTS idx_line_items_item_id ON line_items(item_id);',
   'CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);',
   'CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);',
+  'CREATE INDEX IF NOT EXISTS idx_inventory_logs_item_id ON inventory_logs(item_id);',
+  'CREATE INDEX IF NOT EXISTS idx_inventory_logs_created_at ON inventory_logs(created_at);',
+  'CREATE INDEX IF NOT EXISTS idx_invoice_revisions_invoice_id ON invoice_revisions(invoice_id);',
 ];
 
 export const INSERT_DEFAULT_SETTINGS = `

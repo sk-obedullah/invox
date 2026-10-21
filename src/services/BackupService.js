@@ -21,33 +21,37 @@ class BackupService {
    */
   async createBackup() {
     try {
-      // Ensure backup directory exists
       const dirExists = await RNFS.exists(this.backupDir);
       if (!dirExists) {
         await RNFS.mkdir(this.backupDir);
       }
 
-      // Collect all data
-      const invoices = await InvoiceRepository.getAllForExport();
-      const customers = await CustomerRepository.getAllForExport();
-      const items = await ItemRepository.getAll(); // Since getAll just returns all items
-      const settings = await SettingsRepository.get();
+      const db = await databaseManager.getDatabase();
+      const getTable = async (table) => {
+        const [res] = await db.executeSql(`SELECT * FROM ${table}`);
+        const data = [];
+        for (let i = 0; i < res.rows.length; i++) data.push(res.rows.item(i));
+        return data;
+      };
 
+      // Raw backup of all tables to preserve strict IDs and relations
       const backup = {
-        version: 1,
+        version: 2,
         app: 'Invox',
         created_at: dayjs().toISOString(),
         data: {
-          settings,
-          customers,
-          items,
-          invoices,
+          settings: await getTable('settings'),
+          customers: await getTable('customers'),
+          items: await getTable('items'),
+          invoices: await getTable('invoices'),
+          line_items: await getTable('line_items'),
+          inventory_logs: await getTable('inventory_logs'),
+          invoice_revisions: await getTable('invoice_revisions'),
         },
       };
 
       const fileName = `invox_backup_${dayjs().format('YYYY-MM-DD_HH-mm')}.json`;
       const filePath = `${this.backupDir}/${fileName}`;
-
       await RNFS.writeFile(filePath, JSON.stringify(backup, null, 2), 'utf8');
 
       return filePath;
@@ -65,56 +69,75 @@ class BackupService {
       const content = await RNFS.readFile(filePath, 'utf8');
       const backup = JSON.parse(content);
 
-      // Validate backup structure
       if (!backup.app || backup.app !== 'Invox' || !backup.data) {
         throw new Error('Invalid backup file');
       }
 
-      const { settings, customers, items, invoices } = backup.data;
+      const db = await databaseManager.getDatabase();
 
-      // Restore in transaction-like manner
-      // 1. Settings
-      if (settings) {
-        await SettingsRepository.update(settings);
+      // Step 1: Wipe current user data (except schema/activation if needed, but for full restore we wipe and re-insert)
+      const tablesToClear = ['invoice_revisions', 'inventory_logs', 'line_items', 'invoices', 'items', 'customers'];
+      for (const table of tablesToClear) {
+        await db.executeSql(`DELETE FROM ${table}`);
       }
 
-      // 2. Customers
-      if (customers && customers.length > 0) {
-        for (const customer of customers) {
-          try {
-            const { id, created_at, updated_at, ...customerData } = customer;
-            await CustomerRepository.create(customerData);
-          } catch (e) { /* Skipping duplicate customer */ }
+      const insertData = async (tableName, rows) => {
+        if (!rows || rows.length === 0) return;
+        const columns = Object.keys(rows[0]);
+        const placeholders = columns.map(() => '?').join(', ');
+        const sql = `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
+        
+        for (const row of rows) {
+          const values = columns.map(col => row[col]);
+          await db.executeSql(sql, values);
         }
+      };
+
+      // Handle V1 (Legacy) and V2 (Raw) backups
+      if (backup.version === 1 || !backup.data.line_items) {
+        // Legacy restore
+        const { customers, items, invoices } = backup.data;
+        await insertData('customers', customers);
+        await insertData('items', items);
+        
+        if (invoices) {
+          const legacyInvoices = invoices.map(({ line_items, ...inv }) => inv);
+          await insertData('invoices', legacyInvoices);
+          
+          let lineItemsToInsert = [];
+          invoices.forEach(inv => {
+            if (inv.line_items) lineItemsToInsert.push(...inv.line_items);
+          });
+          await insertData('line_items', lineItemsToInsert);
+        }
+      } else {
+        // V2 Restore (Raw Tables)
+        await insertData('customers', backup.data.customers);
+        await insertData('items', backup.data.items);
+        await insertData('invoices', backup.data.invoices);
+        await insertData('line_items', backup.data.line_items);
+        await insertData('inventory_logs', backup.data.inventory_logs);
+        await insertData('invoice_revisions', backup.data.invoice_revisions);
       }
 
-      // 3. Items
-      if (items && items.length > 0) {
-        for (const item of items) {
-          try {
-            const { id, created_at, updated_at, ...itemData } = item;
-            await ItemRepository.create(itemData);
-          } catch (e) { /* Skipping duplicate item */ }
-        }
-      }
-
-      // 4. Invoices with line items
-      if (invoices && invoices.length > 0) {
-        for (const invoice of invoices) {
-          try {
-            const { id, created_at, updated_at, line_items, ...invoiceData } = invoice;
-            const cleanItems = (line_items || []).map(
-              ({ id: itemId, invoice_id, ...item }) => item
-            );
-            await InvoiceRepository.create(invoiceData, cleanItems);
-          } catch (e) { /* Skipping duplicate invoice */ }
-        }
+      // Handle settings (Preserve activation status)
+      const currentSettings = await SettingsRepository.get();
+      if (backup.data.settings && backup.data.settings.length > 0) {
+        const importedSettings = Array.isArray(backup.data.settings) ? backup.data.settings[0] : backup.data.settings;
+        await db.executeSql(`DELETE FROM settings`);
+        const { is_activated, ...rest } = importedSettings; // Extract imported activation
+        
+        // Ensure the device retains its actual hardware activation state
+        const finalActivated = currentSettings ? currentSettings.is_activated : 0;
+        
+        const settingsToInsert = { ...importedSettings, is_activated: finalActivated };
+        await insertData('settings', [settingsToInsert]);
       }
 
       return {
-        customersRestored: customers?.length || 0,
-        itemsRestored: items?.length || 0,
-        invoicesRestored: invoices?.length || 0,
+        customersRestored: backup.data.customers?.length || 0,
+        itemsRestored: backup.data.items?.length || 0,
+        invoicesRestored: backup.data.invoices?.length || 0,
       };
     } catch (error) {
       console.error('[BackupService] Restore failed:', error);
