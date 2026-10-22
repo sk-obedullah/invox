@@ -30,8 +30,7 @@ const DashboardScreen = ({ navigation }) => {
   const theme = useAppTheme();
   const { colors } = theme.custom;
   const insets = useSafeAreaInsets();
-  const settings = useSettingsStore();
-  const defaultCurrency = settings.default_currency;
+  const defaultCurrency = useSettingsStore((s) => s.default_currency);
   
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);

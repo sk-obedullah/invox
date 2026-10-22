@@ -18,25 +18,63 @@ class SecurityService {
    * Verify a product key against Firestore
    * Logic:
    * 1. Code must exist in 'product_codes' collection
-   * 2. If 'isUsed' is false, activate and bind to this device
+   * 2. If 'isUsed' is false or no deviceId is bound, activate and bind to this device
    * 3. If 'isUsed' is true, allow only if 'deviceId' matches this device
    */
   async activateProduct(key) {
     const deviceId = await this.getDeviceId();
-    const cleanKey = key.trim().toUpperCase();
+    const rawKey = (key || '').trim();
+
+    if (!rawKey) {
+      throw new Error('Please enter a valid product code.');
+    }
+
+    const isDocExists = (docSnapshot) => {
+      if (!docSnapshot) return false;
+      return typeof docSnapshot.exists === 'function' ? docSnapshot.exists() : !!docSnapshot.exists;
+    };
+
+    // Generate candidate variants to be resilient to casing and hyphen/underscore typos
+    const candidates = Array.from(new Set([
+      rawKey,
+      rawKey.toUpperCase(),
+      rawKey.toLowerCase(),
+      rawKey.replace(/-/g, '_'),
+      rawKey.replace(/-/g, '_').toUpperCase(),
+      rawKey.replace(/_/g, '-'),
+      rawKey.replace(/_/g, '-').toUpperCase(),
+    ]));
 
     try {
-      const doc = await db.collection('product_codes').doc(cleanKey).get();
+      let targetDoc = null;
+      let matchedKey = null;
 
-      if (!doc.exists) {
+      for (const candidate of candidates) {
+        try {
+          const doc = await db.collection('product_codes').doc(candidate).get();
+          if (isDocExists(doc)) {
+            targetDoc = doc;
+            matchedKey = candidate;
+            break;
+          }
+        } catch (err) {
+          // Continue to next candidate if single doc get fails
+          console.warn('[Security] Candidate lookup error for', candidate, err.message);
+        }
+      }
+
+      if (!targetDoc || !isDocExists(targetDoc)) {
         throw new Error('Invalid product code. Please check and try again.');
       }
 
-      const data = doc.data();
+      const data = targetDoc.data();
+      if (!data) {
+        throw new Error('Invalid product code details. Please contact support.');
+      }
 
-      // Case 1: Code is new/unused
-      if (!data.isUsed) {
-        await db.collection('product_codes').doc(cleanKey).update({
+      // Case 1: Code is new/unused OR has never been bound to a device
+      if (!data.isUsed || !data.deviceId) {
+        await db.collection('product_codes').doc(matchedKey).update({
           isUsed: true,
           deviceId: deviceId,
           usedAt: firestore.FieldValue.serverTimestamp(),
@@ -47,7 +85,7 @@ class SecurityService {
 
       // Case 2: Code is used by THIS device (Reinstall)
       if (data.deviceId === deviceId) {
-        await db.collection('product_codes').doc(cleanKey).update({
+        await db.collection('product_codes').doc(matchedKey).update({
           reinstallCount: (data.reinstallCount || 0) + 1,
           lastReinstallAt: firestore.FieldValue.serverTimestamp(),
         });

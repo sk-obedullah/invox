@@ -43,7 +43,19 @@ const HomeScreen = ({ navigation }) => {
   const theme = useAppTheme();
   const { colors } = theme.custom;
   const insets = useSafeAreaInsets();
-  const store = useInvoiceStore();
+
+  // Fine-grained Zustand selectors for minimal re-renders
+  const invoices = useInvoiceStore((s) => s.invoices);
+  const stats = useInvoiceStore((s) => s.stats);
+  const total = useInvoiceStore((s) => s.total);
+  const isLoading = useInvoiceStore((s) => s.isLoading);
+  const isRefreshing = useInvoiceStore((s) => s.isRefreshing);
+  const filters = useInvoiceStore((s) => s.filters);
+  const fetchInvoices = useInvoiceStore((s) => s.fetchInvoices);
+  const fetchStats = useInvoiceStore((s) => s.fetchStats);
+  const setFilters = useInvoiceStore((s) => s.setFilters);
+  const loadMore = useInvoiceStore((s) => s.loadMore);
+
   const companyName = useSettingsStore((s) => s.company_name);
   const defaultCurrency = useSettingsStore((s) => s.default_currency);
   const enableAnalytics = useSettingsStore((s) => s.enable_analytics);
@@ -51,21 +63,26 @@ const HomeScreen = ({ navigation }) => {
   const debouncedSearch = useDebounce(searchText, 400);
 
   useEffect(() => { 
-    store.fetchInvoices(true); 
-    store.fetchStats(); 
+    fetchInvoices(true); 
+    fetchStats(); 
     PdfService.cleanupCache(); // Lightweight: Clean old PDFs on startup
-  }, []);
-  useEffect(() => { store.setFilters({ search: debouncedSearch }); }, [debouncedSearch]);
+  }, [fetchInvoices, fetchStats]);
+
+  useEffect(() => { 
+    setFilters({ search: debouncedSearch }); 
+  }, [debouncedSearch, setFilters]);
+
   useEffect(() => {
     const unsub = navigation.addListener('focus', () => {
-      store.fetchInvoices(true); store.fetchStats();
+      fetchInvoices(true); 
+      fetchStats();
     });
     return unsub;
-  }, [navigation]);
+  }, [navigation, fetchInvoices, fetchStats]);
 
   const onInvoicePress = useCallback((inv) => navigation.navigate('InvoiceDetail', { invoiceId: inv.id }), [navigation]);
   const onCreatePress = useCallback(() => navigation.navigate('CreateInvoice'), [navigation]);
-  const onFilterPress = useCallback((s) => store.setFilters({ status: s === store.filters.status ? null : s }), [store.filters.status]);
+  const onFilterPress = useCallback((s) => setFilters({ status: s === filters.status ? null : s }), [filters.status, setFilters]);
 
   const renderItem = useCallback(({ item, index }) => (
     <InvoiceCard invoice={item} onPress={onInvoicePress} index={index} />
@@ -96,26 +113,26 @@ const HomeScreen = ({ navigation }) => {
         </Animated.View>
       )}
 
-      {store.stats && (
+      {stats && (
         <Animated.View entering={FadeIn.duration(600)} style={styles.statsContainer}>
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: colors.primaryLight }]}>
               <Text style={[styles.statLabel, { color: colors.primary }]}>Total</Text>
-              <Text style={[styles.statValue, { color: colors.primary }]}>{store.stats.total_invoices || 0}</Text>
+              <Text style={[styles.statValue, { color: colors.primary }]}>{stats.total_invoices || 0}</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.successLight }]}>
               <Text style={[styles.statLabel, { color: colors.success }]}>Paid</Text>
-              <Text style={[styles.statValue, { color: colors.success }]}>{formatCurrency(store.stats.total_paid || 0, defaultCurrency)}</Text>
+              <Text style={[styles.statValue, { color: colors.success }]}>{formatCurrency(stats.total_paid || 0, defaultCurrency)}</Text>
             </View>
           </View>
           <View style={styles.statsRow}>
             <View style={[styles.statCard, { backgroundColor: colors.warningLight }]}>
               <Text style={[styles.statLabel, { color: colors.warning }]}>Pending</Text>
-              <Text style={[styles.statValue, { color: colors.warning }]}>{formatCurrency(store.stats.total_pending || 0, defaultCurrency)}</Text>
+              <Text style={[styles.statValue, { color: colors.warning }]}>{formatCurrency(stats.total_pending || 0, defaultCurrency)}</Text>
             </View>
             <View style={[styles.statCard, { backgroundColor: colors.errorLight }]}>
               <Text style={[styles.statLabel, { color: colors.error }]}>Overdue</Text>
-              <Text style={[styles.statValue, { color: colors.error }]}>{formatCurrency(store.stats.total_overdue || 0, defaultCurrency)}</Text>
+              <Text style={[styles.statValue, { color: colors.error }]}>{formatCurrency(stats.total_overdue || 0, defaultCurrency)}</Text>
             </View>
           </View>
         </Animated.View>
@@ -126,7 +143,7 @@ const HomeScreen = ({ navigation }) => {
           horizontal data={FILTER_TABS} showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterList} keyExtractor={(i) => String(i.key)}
           renderItem={({ item }) => {
-            const active = store.filters.status === item.key;
+            const active = filters.status === item.key;
             return (
               <TouchableOpacity onPress={() => onFilterPress(item.key)}
                 style={[styles.filterTab, { backgroundColor: active ? colors.primary : colors.surfaceVariant, borderColor: active ? colors.primary : colors.borderLight }]}>
@@ -137,14 +154,14 @@ const HomeScreen = ({ navigation }) => {
         />
       </View>
       <View style={styles.resultCount}>
-        <Text style={[styles.resultCountText, { color: colors.textTertiary }]}>{store.total} invoice{store.total !== 1 ? 's' : ''}</Text>
+        <Text style={[styles.resultCountText, { color: colors.textTertiary }]}>{total} invoice{total !== 1 ? 's' : ''}</Text>
       </View>
     </View>
-  ), [store.stats, searchText, store.filters.status, store.total, colors, defaultCurrency]);
+  ), [enableAnalytics, navigation, stats, searchText, filters.status, total, colors, defaultCurrency, onFilterPress]);
 
-  const renderEmpty = useCallback(() => store.isLoading ? <InvoiceListSkeleton /> : (
+  const renderEmpty = useCallback(() => isLoading ? <InvoiceListSkeleton /> : (
     <EmptyState icon="file-document-plus-outline" title="No invoices yet" message="Create your first invoice" actionLabel="Create Invoice" onAction={onCreatePress} />
-  ), [store.isLoading, onCreatePress]);
+  ), [isLoading, onCreatePress]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -170,17 +187,17 @@ const HomeScreen = ({ navigation }) => {
           </View>
       </Animated.View>
       <FlatList 
-        data={store.invoices} 
+        data={invoices} 
         renderItem={renderItem} 
         keyExtractor={keyExtractor}
         ListHeaderComponent={ListHeader} 
         ListEmptyComponent={renderEmpty}
-        onEndReached={store.loadMore} 
+        onEndReached={loadMore} 
         onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl 
-            refreshing={store.isRefreshing} 
-            onRefresh={() => store.fetchInvoices(true)} 
+            refreshing={isRefreshing} 
+            onRefresh={() => fetchInvoices(true)} 
             tintColor={colors.primary} 
             colors={[colors.primary]} 
           />

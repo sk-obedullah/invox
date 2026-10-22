@@ -29,14 +29,20 @@ const SummaryRow = ({ label, value, bold, color, negative, secondary }) => {
   );
 };
 
-const InvoiceSummary = ({ totals, currency, showTax = true }) => {
+const InvoiceSummary = ({ totals, currency, showTax = true, flat = false }) => {
   const theme = useAppTheme();
   const { colors } = theme.custom;
   
   const { subtotal, tax_amount, discount, total } = totals;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surfaceVariant + '50' }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.surfaceVariant + '50' },
+        flat && styles.flatContainer,
+      ]}
+    >
       <SummaryRow label="Subtotal" value={formatCurrency(subtotal, currency)} />
       
       {showTax && tax_amount > 0 && (
@@ -52,12 +58,16 @@ const InvoiceSummary = ({ totals, currency, showTax = true }) => {
         />
       )}
 
-      {/* Dashed Divider Visual */}
-      <View style={styles.dashedContainer}>
-        {[...Array(20)].map((_, i) => (
-          <View key={i} style={[styles.dash, { backgroundColor: colors.border }]} />
-        ))}
-      </View>
+      {/* Divider Visual */}
+      {flat ? (
+        <View style={[styles.solidDivider, { backgroundColor: colors.borderLight }]} />
+      ) : (
+        <View style={styles.dashedContainer}>
+          {[...Array(20)].map((_, i) => (
+            <View key={i} style={[styles.dash, { backgroundColor: colors.border }]} />
+          ))}
+        </View>
+      )}
 
       <View style={styles.totalRow}>
         <Text style={[styles.totalLabel, { color: colors.textPrimary }]}>Grand Total</Text>
@@ -79,6 +89,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.03)',
+  },
+  flatContainer: {
+    padding: 0,
+    marginTop: spacing.xs,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+  },
+  solidDivider: {
+    height: 1,
+    marginVertical: spacing.sm,
   },
   row: {
     flexDirection: 'row',
